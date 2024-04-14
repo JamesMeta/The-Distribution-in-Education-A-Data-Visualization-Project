@@ -123,7 +123,7 @@ average score in each subject, by gender. To do this we will need to
 separate rows by gender and take the averages of each rows columns value
 plotting with a bar graph.
 </body>
-<br> 
+
 ![](README_figs/README-unnamed-chunk-5-1.png)<!-- -->
 <h5>
 <b>Results</b>
@@ -167,7 +167,7 @@ demonstrate the positive correleation between studying and success. This
 will be done by plotting a scatterplot of average grades over hours
 studies.
 </body>
-<br> 
+
 ![](README_figs/README-unnamed-chunk-7-1.png)<!-- -->
 <h5>
 <b>Results</b>
