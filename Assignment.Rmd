@@ -1,0 +1,279 @@
+---
+title: "What is the Situation in American Universities?"
+author: "James Mata (100816542)"
+output: rmarkdown::github_document
+date: "2024-03-29"
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "README_figs/README-"
+)
+```
+<h3><b>Introduction</b></h3>
+<hr style="border-width: 10px">
+<body>The United States of America is currently 3rd world-wide in reference to the number of universities it has. Because of this there are numerous sets of data describing a variety of different quantities and qualities surrounding American Academia. In this report we will be exploring some of these characteristics to answer a few questions. First which US state has the greatest number of universities? Next we will explore the dichotomy between genders in University by attempting to understand how grades differ per gender as well as majors. We will also try to understand how effective studying is in getting good grades. Finally we will explore the cost of University in America for a full ride all costs included.</body>
+
+<h3><b>Data manipulation</b></h3>
+<hr style="border-width: 10px">
+
+<body>For the data manipulation section for this report, we are going to first start by importing our datasets. For this report we will be using student.scores.csv and student_spending.(1).csv which reports numerous facts about student performance in university and their spending habits aswell. We will also use universities.csv which reports the locations of universities in the USA</body>
+
+<body>In this section we will also import all necessary libraries we will be using in later sections.</body>
+```{r, message=FALSE, warning=FALSE}
+#install.packages(c("tidyverse","ggplot2","ggthemes","scales","tidyr","RColorBrewer","maps"))
+
+#Essential Libraries
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(scales)
+library(tidyr)
+library(RColorBrewer)
+library(maps)
+
+#Data being analysed
+scores <- read.csv("data/student-scores.csv")
+spending <- read.csv("data/student_spending (1).csv")
+university <- read.csv("data/universities.csv")
+```
+<body>First we will remove irrelevant columns in each dataframe. Student Scores contains personal values such as name, email, and ID which will not be important for our data analysis, since from as far as I am aware first name has no correlation with success (but maybe that will be a future analysis). Student spending also contains an ID column which will not be necessary and University has numerous university stats we will not be using.</body>
+```{r, message=FALSE, warning=FALSE}
+# Remove the column 'id' from the 'scores' dataframe
+scores <- scores[, !(names(scores) %in% c("id"))]
+
+# Remove the column 'first_name' from the 'scores' dataframe
+scores <- scores[, !(names(scores) %in% c("first_name"))]
+
+# Remove the column 'last_name' from the 'scores' dataframe
+scores <- scores[, !(names(scores) %in% c("last_name"))]
+
+# Remove the column 'email' from the 'scores' dataframe
+scores <- scores[, !(names(scores) %in% c("email"))]
+
+# Remove the column 'X' from the 'spending' dataframe
+spending <- spending[, !(names(spending ) %in% c("X"))]
+
+# Select only the columns 'NAME' and 'STATE' from the 'university' dataframe
+universities <- university[, c("NAME","STATE")]
+
+```
+<h3><b>Analysis</b></h3>
+<hr style="border-width: 10px">
+
+<h5><b>Study #1</b></h5>
+<body>In our first analysis we will be exploring the locations of American universities to see which states offer the most amount of programs. We will then color a map of the USA to reflect the quantity of programs in that state.</body> 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Create a lookup table 'state_lookup' where state abbreviations are mapped to their full names
+state_lookup <- setNames(state.name, state.abb)
+
+# Add a new column 'full_state' to 'universities' dataframe with full state names in lowercase
+universities$full_state <- tolower(state_lookup[universities$STATE])
+
+# Group 'universities' dataframe by 'full_state' and calculate the total count of universities in each state
+result <- universities %>%
+  group_by(full_state) %>%
+  summarise(total_count = n())
+
+# Load map data for US states and select relevant columns
+us_states <- map_data("state") |>
+  select(lon = long, lat, group, state = region)
+
+# Merge 'us_states' data with 'result' data based on matching state names
+merged_data <- left_join(us_states, result, join_by(state == full_state))
+
+# Create a ggplot object to visualize the data
+ggplot() +
+  # Draw polygons for each state with fill color representing the total count of universities
+  geom_polygon(data = merged_data, aes(x = lon, y = lat, group = group, fill = total_count), color = "black") +
+  # Customize fill color gradient
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = "grey", name = "University Count") +
+  # Set plot title and subtitle
+  labs(title = "Number of Universities and Colleges in US States", subtitle = expression(italic("Source: public.opendatasoft.com"))) +
+  # Apply dark theme to the plot
+  theme_dark() +
+  # Set aspect ratio and remove axis titles, texts, and ticks
+  theme(aspect.ratio = 0.67, axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank())
+
+```
+
+<h5><b>Results</b></h5>
+<body>From this graph it becomes very apparent that California is the leading US state in the quantity of post secondary institutions with Texas, Florida, and New York following behind. This is to be expected however due to the approximate sizes of these states combined with their dense populations. In contrast other States like Utah Montana, and the Dakotas have relatively fewer Universities likely due to their smaller populations</body>
+
+<h5><b>Study #2</b></h5>
+<body>In our next analysis we will attempt to understand the differences in male and female academic performance in each subject by plotting the average score in each subject, by gender. To do this we will need to separate rows by gender and take the averages of each rows columns value plotting with a bar graph.</body>
+<br>
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Select relevant columns for gender and various subject scores from the 'scores' dataframe
+grades_by_gender <- scores[, c("gender", "math_score", "history_score", "physics_score", "chemistry_score", "biology_score", "english_score", "geography_score")]
+
+# Calculate the average grades for each gender across all subjects
+average_grades_by_gender <- aggregate(. ~ gender, data = grades_by_gender, FUN = mean)
+
+# Reshape the data from wide to long format for easier plotting
+grades_long <- pivot_longer(average_grades_by_gender, cols = -gender, names_to = "class", values_to = "avg_grade")
+
+# Create a bar plot to visualize the average grades by gender and class
+ggplot(grades_long, aes(x = avg_grade, y = class, fill = gender)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +  # Draw bars with dodge position
+  coord_cartesian(xlim = c(75, 85)) +  # Set limits for the x-axis
+  labs(title = "Average Grades by Gender and Class",  # Set plot title and axis labels
+       x = "Average Grade",
+       y = "Class",
+       fill = "Gender") +
+  theme_economist() +  # Apply Economist theme
+  theme(axis.text.y = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5)) +  # Rotate y-axis labels and adjust title alignment
+  scale_y_discrete(labels = c("math_score" = "Math",  # Rename y-axis labels for better readability
+                              "history_score" = "History",
+                              "physics_score" = "Physics",
+                              "chemistry_score" = "Chemistry",
+                              "biology_score" = "Biology",
+                              "english_score" = "English",
+                              "geography_score" = "Geography"))
+
+
+```
+<h5><b>Results</b></h5>
+<body>The results received points to the fact there is not a significant difference between the academic performance of male and females in most most courses. While men usually achieve higher math, biology, and physics averages, women tend to score higher in history, geography, english, and chemistry. This shows that both genders are relatively equal academic wise as no gender holds a significantly higher average overall.</body>
+
+<h5><b>Study #3</b></h5>
+In our third analysis we will try to understand which majors are most often chosen by which gender. To do this we will need to count the amount of each major exists and then plot the results in a pie chart.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Select columns for gender and career aspiration from the 'scores' dataframe
+subjects_by_gender <- scores [, c("gender", "career_aspiration")]
+
+# Count the occurrences of each combination of gender and career aspiration
+major_counts <- table(subjects_by_gender$gender, subjects_by_gender$career_aspiration)
+
+# Calculate the proportion of each career aspiration for each gender
+major_counts_prop <- prop.table(major_counts, margin = 1)
+
+# Transpose the data for easier plotting
+major_counts_transposed <- t(major_counts_prop)
+
+# Convert the transposed data to a dataframe
+major_counts_data_frame <- as.data.frame(major_counts_transposed)
+
+# Rename columns of the dataframe
+colnames(major_counts_data_frame) <- c("Career_Aspiration", "Gender", "Count")
+
+# Define colors for different career aspirations
+colors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b",
+            "#e377c2", "#7f7f7f", "#bcbd22", "#17becf", "#aec7e8", "#ffbb78",
+            "#98df8a", "#ff9896", "#c5b0d5", "#c49c94", "#f7b6d2")
+
+# Create a pie chart for each gender showing the distribution of career aspirations
+ggplot(major_counts_data_frame, aes(x = "", y = Count, fill = Career_Aspiration)) +
+  geom_bar(width = 1, color = "azure2",  stat = "identity") +  # Draw bars for pie chart
+  coord_polar(theta = "y") +  # Convert bar plot to polar coordinates
+  facet_wrap(~ Gender) +  # Create separate plots for each gender
+  labs(title = 'Students Future Career Aspirations', fill = "Job types") +  # Set plot title and legend title
+  scale_fill_manual(values = colors) +  # Use custom colors for career aspirations
+  theme_excel() +  # Apply Excel-like theme
+  theme(legend.position = "right", legend.text = element_text(size = 10), legend.key.size = unit(0.35, "cm"),  # Adjust legend position and appearance
+        axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.y = element_blank(),  # Remove axis titles and labels
+        axis.ticks.y = element_blank(), panel.grid.major.y = element_blank(),  # Remove y-axis ticks and grid lines
+        panel.grid.minor.y = element_blank(),
+        ) +  # Remove minor y-axis grid lines
+  scale_y_continuous(breaks = seq(0.01, 1, by = 0.04),  # Set breaks and labels for y-axis
+                     labels = scales::percent(seq(0.01, 1, by = 0.04)))  # Convert breaks to percentages
+
+
+```
+<h5><b>Results</b></h5>
+<body>This chart shows that both men and women have quite diverse career interests with alot of interest shown in a wide spread of different careers post university. There are some notes that can be taken about the absence of construction engineers and teachers from the female and male charts respectively. This shows the contrasting job desires between the genders.</body>
+
+<h5><b>Study #4</b></h5>
+<body>In our third analysis we will investigate the relationship between the quantity of weekly study hours and academic success. Hopefully this will demonstrate the positive correleation between studying and success. This will be done by plotting a scatterplot of average grades over hours studies.</body>
+<br>
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Select relevant columns for weekly self-study hours and subject scores from the 'scores' dataframe
+grades_by_study_hours <- scores[, c("weekly_self_study_hours", "math_score", "history_score", "physics_score", "chemistry_score", "biology_score", "english_score", "geography_score")]
+
+# Calculate the average grade across all courses for each student
+grades_by_study_hours$average_grade <- rowMeans(grades_by_study_hours[, -1])
+
+# Select columns for weekly self-study hours and average grade
+average_grades_by_study_hours <- grades_by_study_hours[, c("weekly_self_study_hours", "average_grade")]
+
+# Sample the data for plotting
+sampled_data <- average_grades_by_study_hours %>%
+  sample_frac(1)
+
+# Create a scatter plot with jittered points and smoothed line to show the relationship between study hours and average grade
+ggplot(sampled_data, aes(x = weekly_self_study_hours, y = average_grade, color = weekly_self_study_hours)) + 
+  geom_jitter(width = 0.5, height = 0.5, size = 0.5) +  # Add jittered points for visualization
+  scale_x_continuous(breaks = breaks_extended(n = 5)) +  # Extend x-axis breaks
+  coord_cartesian(ylim = c(70, 90), xlim = c(0, 35)) +  # Set limits for axes
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +  # Add smoothed line
+  theme_light() +  # Apply light theme
+  labs(x = "Amount of Hours a Week Spent Studying", y = "Average Grade Across All Courses",  # Set axis labels and title
+       title = expression(bold("How the amount of hours spent studying affects academic performance")), 
+       subtitle = expression(italic("Averages taken from the courses in Graph #2")),  # Add subtitle
+       color = "weekly_self_study_hours") +  # Set legend title
+  theme(panel.background = element_rect(fill = "aliceblue", color = "black"),  # Customize panel background
+        panel.grid.major = element_line(color = "grey70", size = 0.2))  # Customize major grid lines
+
+```
+<h5><b>Results</b></h5>
+<body>The results received are quite unsurprising.As expected the amount of hours spent studying positively correlates with academic success. An interesting takeaway however comes from the fact this isn't true for everyone. The noisy data demonstrates that some individuals succeed with little studying while others do poor with extensive studying. This points to the idea that it isn't truly the amount of hours of studying you participate in that matters but rather the quality of studying conducted.</body>
+
+<h5><b>Study #5</b></h5>
+In our forth analysis we will be attempting to discover a relationship between student age and monthly expenses. We will do this by plotting a scatter plot of student ages vs sum of all monthly expenses to see if there is a pattern
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Select relevant columns for major and various expenses from the 'spending' dataframe
+expenses_by_age <- spending [, c("major", "tuition", "housing", "food", "transportation", "books_supplies", "entertainment", "personal_care", "technology", "health_wellness", "miscellaneous")]
+
+# Calculate the total expenses for each individual
+expenses_by_age$total_expenses <- rowSums(expenses_by_age[,-1])
+
+# Select columns for major and total expenses
+total_expenses_by_age <- expenses_by_age[, c("major","total_expenses")]
+
+# Calculate the average expenses for each major
+average_expenses_by_major <- total_expenses_by_age %>%
+  group_by(major) %>%
+  summarise(average_expenses = mean(total_expenses))
+
+# Plotting
+ggplot(average_expenses_by_major, aes(x = major, y = average_expenses, fill = major)) + 
+  geom_bar(stat = "identity") +  # Draw bars
+  scale_color_brewer(palette = "Set3") +  # Set color palette
+  scale_x_discrete(labels = c("1" = "Psychology", "2" = "Economics", "3" = "Computer Science", "4" = "Engineering", "5" = "Biology")) +  # Customize x-axis labels
+  coord_cartesian(ylim = c(6200, 6500)) +  # Set limits for the y-axis
+  theme_solarized() +  # Apply solarized theme
+  labs(x = "Major", y = "Average Expenses",  # Set axis labels and title
+       title = expression(bold("Average Expenses by Major")), 
+       subtitle = ("The Average Monthly Expenses for Food, Rent, Tuition, Entertainment, Tech, Books, and Miscellaneous"),  # Add subtitle
+       fill = "Major") +  # Set legend title
+  theme(
+    panel.background = element_rect(fill = "aliceblue", color = "black"),  # Customize panel background
+    panel.grid.minor = element_blank(),  # Remove minor grid lines
+    panel.grid.major = element_line(color = "black", size = 0.2),  # Customize major grid lines
+    axis.text = element_text(size=8),  # Adjust text size for axis labels
+    plot.subtitle = element_text(size=8)  # Adjust text size for subtitle
+  )
+
+
+```
+<h5><b>Results</b></h5>
+<body>This graph shows the interesting differences between average monthly expenses for each major. It shows the psychology majors spend significantly more per month then any other major. Interestingly Engineering majors have the lowest expenses (probably on account of them never having time for anything but homework and eating ramen) with economics and biology majors a close second.</body>
+
+<h3>References</h3>
+<hr style="border-width: 10px">
+
+<h5>Student Scores</h5>
+
+<link>https://www.kaggle.com/datasets/mexwell/student-scores/data </link>
+
+<h5>Student Spending Habits</h5>
+
+<link>https://www.kaggle.com/datasets/sumanthnimmagadda/student-spending-dataset </link>
+
+<h5>US Colleges and Universities</h5>
+
+<link>https://public.opendatasoft.com/explore/dataset/us-colleges-and-universities/export/ </link>
